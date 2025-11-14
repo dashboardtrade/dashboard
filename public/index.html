@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trading Bot Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>🤖 AI Trading Bot Dashboard</h1>
+                <div class="price-display">
+                    <span class="symbol">BTC/USD</span>
+                    <span class="price" id="currentPrice">$0</span>
+                    <span class="change" id="priceChange">+0.00%</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="stats">
+                    <div class="stat">
+                        <span class="label">Balance</span>
+                        <span class="value" id="balance">$10,000</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Return</span>
+                        <span class="value" id="return">+0.0%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Win Rate</span>
+                        <span class="value" id="winRate">0%</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Chart Section -->
+            <div class="chart-section">
+                <div class="chart-header">
+                    <div class="timeframes">
+                        <button class="timeframe active" data-timeframe="1m">1m</button>
+                        <button class="timeframe" data-timeframe="5m">5m</button>
+                        <button class="timeframe" data-timeframe="15m">15m</button>
+                        <button class="timeframe" data-timeframe="1h">1h</button>
+                        <button class="timeframe" data-timeframe="4h">4h</button>
+                    </div>
+                    <div class="chart-controls">
+                        <button id="toggleTrades" class="control-btn">📍 Show Trades</button>
+                        <button id="toggleVolume" class="control-btn">📊 Volume</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Side Panel -->
+            <div class="side-panel">
+                <!-- Current Position -->
+                <div class="panel-section">
+                    <h3>Current Position</h3>
+                    <div id="currentPosition" class="position-card">
+                        <div class="no-position">No open position</div>
+                    </div>
+                </div>
+
+                <!-- Recent Trades -->
+                <div class="panel-section">
+                    <h3>Recent Trades</h3>
+                    <div id="recentTrades" class="trades-list">
+                        <div class="loading">Loading trades...</div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics -->
+                <div class="panel-section">
+                    <h3>Performance</h3>
+                    <div class="metrics">
+                        <div class="metric">
+                            <span class="metric-label">Total Trades</span>
+                            <span class="metric-value" id="totalTrades">0</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Winning Trades</span>
+                            <span class="metric-value" id="winningTrades">0</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total P&L</span>
+                            <span class="metric-value" id="totalPnL">$0.00</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Best Trade</span>
+                            <span class="metric-value" id="bestTrade">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="status-dot" id="connectionStatus"></span>
+                <span id="connectionText">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <span>Last Update: <span id="lastUpdate">--:--:--</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
