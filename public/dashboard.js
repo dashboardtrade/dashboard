@@ -108,23 +108,64 @@ class TradingDashboard {
     }
     
     setupChart() {
-        const ctx = document.getElementById('priceChart').getContext('2d');
+        const chartContainer = document.getElementById('priceChart');
         
-        // Register the annotation plugin if available
-        if (window['chartjs-plugin-annotation']) {
-            Chart.register(window['chartjs-plugin-annotation']);
-        }
-        
-        this.chart = new Chart(ctx, {
-            type: 'candlestick',
-            data: {
-                datasets: [{
-                    label: 'BTC/USD',
-                    data: [], // Will be populated from Supabase
-                    borderColor: '#f0b90b',
-                    backgroundColor: 'rgba(240, 185, 11, 0.1)',
-                }]
+        // Create TradingView-style chart
+        this.chart = LightweightCharts.createChart(chartContainer, {
+            width: chartContainer.clientWidth,
+            height: chartContainer.clientHeight,
+            layout: {
+                background: { color: '#161a1e' },
+                textColor: '#d1d4dc',
             },
+            grid: {
+                vertLines: { color: '#2b3139' },
+                horzLines: { color: '#2b3139' },
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+            },
+            rightPriceScale: {
+                borderColor: '#2b3139',
+            },
+            timeScale: {
+                borderColor: '#2b3139',
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+
+        // Add candlestick series
+        this.candlestickSeries = this.chart.addCandlestickSeries({
+            upColor: '#02c076',
+            downColor: '#f84960',
+            borderDownColor: '#f84960',
+            borderUpColor: '#02c076',
+            wickDownColor: '#f84960',
+            wickUpColor: '#02c076',
+        });
+
+        // Add volume series
+        this.volumeSeries = this.chart.addHistogramSeries({
+            color: '#26a69a',
+            priceFormat: {
+                type: 'volume',
+            },
+            priceScaleId: '',
+            scaleMargins: {
+                top: 0.8,
+                bottom: 0,
+            },
+        });
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            this.chart.applyOptions({
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
+            });
+        });
+    }
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -230,8 +271,24 @@ class TradingDashboard {
             const data = await response.json();
             
             if (data.candles && data.candles.length > 0) {
-                this.chart.data.datasets[0].data = data.candles;
-                this.chart.update();
+                // Format data for Lightweight Charts
+                const candleData = data.candles.map(candle => ({
+                    time: Math.floor(new Date(candle.x).getTime() / 1000), // Unix timestamp
+                    open: candle.o,
+                    high: candle.h,
+                    low: candle.l,
+                    close: candle.c
+                }));
+
+                const volumeData = data.candles.map(candle => ({
+                    time: Math.floor(new Date(candle.x).getTime() / 1000),
+                    value: candle.v,
+                    color: candle.c >= candle.o ? '#02c076' : '#f84960'
+                }));
+
+                // Set data to chart
+                this.candlestickSeries.setData(candleData);
+                this.volumeSeries.setData(volumeData);
                 
                 // Update current price from latest candle
                 const latestCandle = data.candles[data.candles.length - 1];
@@ -449,58 +506,38 @@ class TradingDashboard {
     }
     
     updateTradeMarkers() {
-        if (!this.chart || !this.showTrades) return;
+        if (!this.candlestickSeries || !this.showTrades) return;
         
-        // Remove existing trade annotations
-        if (this.chart.options.plugins.annotation) {
-            this.chart.options.plugins.annotation.annotations = {};
-        } else {
-            this.chart.options.plugins.annotation = { annotations: {} };
-        }
+        // Create markers for trades
+        const markers = [];
         
-        // Add trade markers
         this.trades.forEach((trade, index) => {
             if (trade.status === 'closed' && trade.entry_price && trade.exit_price) {
-                const entryTime = new Date(trade.timestamp);
-                const exitTime = new Date(trade.exit_time);
+                const entryTime = Math.floor(new Date(trade.timestamp).getTime() / 1000);
+                const exitTime = Math.floor(new Date(trade.exit_time).getTime() / 1000);
                 
                 // Entry marker
-                this.chart.options.plugins.annotation.annotations[`entry_${index}`] = {
-                    type: 'point',
-                    xValue: entryTime,
-                    yValue: trade.entry_price,
-                    backgroundColor: trade.direction === 'long' ? '#02c076' : '#f84960',
-                    borderColor: '#ffffff',
-                    borderWidth: 2,
-                    radius: 6
-                };
+                markers.push({
+                    time: entryTime,
+                    position: 'belowBar',
+                    color: trade.direction === 'long' ? '#02c076' : '#f84960',
+                    shape: trade.direction === 'long' ? 'arrowUp' : 'arrowDown',
+                    text: `${trade.direction.toUpperCase()} $${trade.entry_price.toFixed(0)}`
+                });
                 
                 // Exit marker
-                this.chart.options.plugins.annotation.annotations[`exit_${index}`] = {
-                    type: 'point',
-                    xValue: exitTime,
-                    yValue: trade.exit_price,
-                    backgroundColor: (trade.pnl || 0) > 0 ? '#02c076' : '#f84960',
-                    borderColor: '#ffffff',
-                    borderWidth: 2,
-                    radius: 4
-                };
-                
-                // Trade line
-                this.chart.options.plugins.annotation.annotations[`line_${index}`] = {
-                    type: 'line',
-                    xMin: entryTime,
-                    xMax: exitTime,
-                    yMin: trade.entry_price,
-                    yMax: trade.exit_price,
-                    borderColor: (trade.pnl || 0) > 0 ? '#02c076' : '#f84960',
-                    borderWidth: 1,
-                    borderDash: [5, 5]
-                };
+                markers.push({
+                    time: exitTime,
+                    position: 'aboveBar',
+                    color: (trade.pnl || 0) > 0 ? '#02c076' : '#f84960',
+                    shape: 'circle',
+                    text: `EXIT $${trade.exit_price.toFixed(0)} (${(trade.pnl || 0) > 0 ? '+' : ''}$${(trade.pnl || 0).toFixed(2)})`
+                });
             }
         });
         
-        this.chart.update('none');
+        // Set markers to candlestick series
+        this.candlestickSeries.setMarkers(markers);
     }
     
     updateConnectionStatus(connected) {
