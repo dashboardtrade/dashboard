@@ -19,6 +19,12 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+// Supabase client for candles data (separate database)
+const candlesSupabase = createClient(
+  process.env.CANDLES_SUPABASE_URL,
+  process.env.CANDLES_SUPABASE_KEY
+);
+
 // Finnhub API configuration
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const FINNHUB_WS_URL = `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}`;
@@ -238,16 +244,16 @@ app.get('/api/chart-trades', async (req, res) => {
 
 app.get('/api/candles', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await candlesSupabase
       .from('candles')
-      .select('*')
-      .order('timestamp', { ascending: true })
-      .limit(1000); // Last 1000 candles
+      .select('timestamp, open, high, low, close, volume')
+      .order('timestamp', { ascending: false })
+      .limit(1000);
 
     if (error) throw error;
 
-    // Format candles for Chart.js
-    const formattedCandles = data.map(candle => ({
+    // Format candles for Chart.js (reverse to ascending order)
+    const formattedCandles = data.reverse().map(candle => ({
       x: new Date(candle.timestamp),
       o: candle.open,
       h: candle.high,
@@ -266,7 +272,7 @@ app.get('/api/candles', async (req, res) => {
 app.get('/api/current-price', async (req, res) => {
   try {
     // Get latest candle for current price
-    const { data, error } = await supabase
+    const { data, error } = await candlesSupabase
       .from('candles')
       .select('close, timestamp')
       .order('timestamp', { ascending: false })
