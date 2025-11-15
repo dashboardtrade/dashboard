@@ -238,12 +238,52 @@ app.get('/api/chart-trades', async (req, res) => {
 
 app.get('/api/candles', async (req, res) => {
   try {
-    // Generate 1-minute candles from price history
-    const candles = generateCandles(priceHistory);
-    res.json({ candles });
+    const { data, error } = await supabase
+      .from('candles')
+      .select('*')
+      .order('timestamp', { ascending: true })
+      .limit(1000); // Last 1000 candles
+
+    if (error) throw error;
+
+    // Format candles for Chart.js
+    const formattedCandles = data.map(candle => ({
+      x: new Date(candle.timestamp),
+      o: candle.open,
+      h: candle.high,
+      l: candle.low,
+      c: candle.close,
+      v: candle.volume
+    }));
+
+    res.json({ candles: formattedCandles });
   } catch (error) {
-    console.error('Error generating candles:', error);
-    res.status(500).json({ error: 'Failed to generate candles' });
+    console.error('Error fetching candles:', error);
+    res.status(500).json({ error: 'Failed to fetch candles' });
+  }
+});
+
+app.get('/api/current-price', async (req, res) => {
+  try {
+    // Get latest candle for current price
+    const { data, error } = await supabase
+      .from('candles')
+      .select('close, timestamp')
+      .order('timestamp', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const latestPrice = data[0]?.close || currentPrice;
+    currentPrice = latestPrice;
+
+    res.json({ 
+      price: latestPrice,
+      timestamp: data[0]?.timestamp || new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching current price:', error);
+    res.status(500).json({ error: 'Failed to fetch current price' });
   }
 });
 

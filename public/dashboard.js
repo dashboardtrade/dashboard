@@ -116,18 +116,13 @@ class TradingDashboard {
         }
         
         this.chart = new Chart(ctx, {
-            type: 'line',
+            type: 'candlestick',
             data: {
                 datasets: [{
                     label: 'BTC/USD',
-                    data: this.priceHistory,
+                    data: [], // Will be populated from Supabase
                     borderColor: '#f0b90b',
                     backgroundColor: 'rgba(240, 185, 11, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.1,
-                    pointRadius: 0,
-                    pointHoverRadius: 4
                 }]
             },
             options: {
@@ -222,11 +217,32 @@ class TradingDashboard {
     
     async loadInitialData() {
         await Promise.all([
+            this.loadCandles(),
             this.loadTrades(),
             this.loadStats(),
-            this.loadCurrentPosition(),
-            this.loadChartTrades()
+            this.loadCurrentPosition()
         ]);
+    }
+
+    async loadCandles() {
+        try {
+            const response = await fetch('/api/candles');
+            const data = await response.json();
+            
+            if (data.candles && data.candles.length > 0) {
+                this.chart.data.datasets[0].data = data.candles;
+                this.chart.update();
+                
+                // Update current price from latest candle
+                const latestCandle = data.candles[data.candles.length - 1];
+                if (latestCandle) {
+                    this.currentPrice = latestCandle.c;
+                    document.getElementById('currentPrice').textContent = `$${this.currentPrice.toLocaleString()}`;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading candles:', error);
+        }
     }
     
     async loadChartTrades() {
