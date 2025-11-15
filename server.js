@@ -244,13 +244,25 @@ app.get('/api/chart-trades', async (req, res) => {
 
 app.get('/api/candles', async (req, res) => {
   try {
+    console.log('Fetching candles from database...');
+    
+    if (!candlesSupabase) {
+      console.log('No candles database configured, using fallback');
+      return res.json({ candles: [] });
+    }
+
     const { data, error } = await candlesSupabase
       .from('candles')
       .select('timestamp, open, high, low, close, volume')
       .order('timestamp', { ascending: false })
       .limit(1000);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+
+    console.log(`Fetched ${data.length} candles from database`);
 
     // Format candles for Chart.js (reverse to ascending order)
     const formattedCandles = data.reverse().map(candle => ({
@@ -262,10 +274,14 @@ app.get('/api/candles', async (req, res) => {
       v: candle.volume
     }));
 
+    console.log('Sending formatted candles to client');
     res.json({ candles: formattedCandles });
   } catch (error) {
     console.error('Error fetching candles:', error);
-    res.status(500).json({ error: 'Failed to fetch candles' });
+    res.status(500).json({ 
+      error: 'Failed to fetch candles',
+      message: error.message 
+    });
   }
 });
 
