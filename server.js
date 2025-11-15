@@ -24,22 +24,49 @@ const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const FINNHUB_WS_URL = `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}`;
 
 // Store for real-time data
-let currentPrice = 0;
+let currentPrice = 97000; // Default BTC price
 let priceHistory = [];
 let connectedClients = new Set();
 
 // WebSocket server for client connections
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: process.env.PORT ? parseInt(process.env.PORT) + 1 : 8080 });
 
 // Finnhub WebSocket connection
 let finnhubWs;
 
+// Fallback price simulation if Finnhub fails
+function simulatePrice() {
+  const variation = (Math.random() - 0.5) * 200; // ±$100 variation
+  currentPrice = Math.max(90000, Math.min(110000, currentPrice + variation));
+  
+  const priceData = {
+    price: currentPrice,
+    volume: Math.random() * 100,
+    timestamp: Date.now()
+  };
+  
+  priceHistory.push(priceData);
+  if (priceHistory.length > 1000) {
+    priceHistory.shift();
+  }
+  
+  broadcastToClients({
+    type: 'price_update',
+    data: priceData
+  });
+}
+
 function connectToFinnhub() {
+  if (!FINNHUB_API_KEY) {
+    console.log('⚠️ No Finnhub API key, using simulated prices');
+    setInterval(simulatePrice, 2000); // Update every 2 seconds
+    return;
+  }
+
   finnhubWs = new WebSocket(FINNHUB_WS_URL);
   
   finnhubWs.on('open', () => {
     console.log('🔗 Connected to Finnhub WebSocket');
-    // Subscribe to Bitcoin real-time prices
     finnhubWs.send(JSON.stringify({
       'type': 'subscribe',
       'symbol': 'BINANCE:BTCUSDT'

@@ -28,7 +28,17 @@ class TradingDashboard {
     }
     
     setupWebSocket() {
-        const wsUrl = `ws://${window.location.hostname}:8080`;
+        // Try different WebSocket ports for Render deployment
+        const ports = [8080, 8081, window.location.port ? parseInt(window.location.port) + 1 : 8080];
+        let wsUrl = `wss://${window.location.hostname}:${ports[0]}`;
+        
+        // Use WSS for HTTPS sites, WS for HTTP
+        if (window.location.protocol === 'https:') {
+            wsUrl = `wss://${window.location.hostname}`;
+        } else {
+            wsUrl = `ws://${window.location.hostname}:8080`;
+        }
+        
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
@@ -99,6 +109,11 @@ class TradingDashboard {
     
     setupChart() {
         const ctx = document.getElementById('priceChart').getContext('2d');
+        
+        // Register the annotation plugin if available
+        if (window['chartjs-plugin-annotation']) {
+            Chart.register(window['chartjs-plugin-annotation']);
+        }
         
         this.chart = new Chart(ctx, {
             type: 'line',
@@ -418,9 +433,58 @@ class TradingDashboard {
     }
     
     updateTradeMarkers() {
-        // TODO: Add trade markers to chart
-        // This would require a more advanced charting library like TradingView
-        console.log('Trade markers update requested');
+        if (!this.chart || !this.showTrades) return;
+        
+        // Remove existing trade annotations
+        if (this.chart.options.plugins.annotation) {
+            this.chart.options.plugins.annotation.annotations = {};
+        } else {
+            this.chart.options.plugins.annotation = { annotations: {} };
+        }
+        
+        // Add trade markers
+        this.trades.forEach((trade, index) => {
+            if (trade.status === 'closed' && trade.entry_price && trade.exit_price) {
+                const entryTime = new Date(trade.timestamp);
+                const exitTime = new Date(trade.exit_time);
+                
+                // Entry marker
+                this.chart.options.plugins.annotation.annotations[`entry_${index}`] = {
+                    type: 'point',
+                    xValue: entryTime,
+                    yValue: trade.entry_price,
+                    backgroundColor: trade.direction === 'long' ? '#02c076' : '#f84960',
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    radius: 6
+                };
+                
+                // Exit marker
+                this.chart.options.plugins.annotation.annotations[`exit_${index}`] = {
+                    type: 'point',
+                    xValue: exitTime,
+                    yValue: trade.exit_price,
+                    backgroundColor: (trade.pnl || 0) > 0 ? '#02c076' : '#f84960',
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    radius: 4
+                };
+                
+                // Trade line
+                this.chart.options.plugins.annotation.annotations[`line_${index}`] = {
+                    type: 'line',
+                    xMin: entryTime,
+                    xMax: exitTime,
+                    yMin: trade.entry_price,
+                    yMax: trade.exit_price,
+                    borderColor: (trade.pnl || 0) > 0 ? '#02c076' : '#f84960',
+                    borderWidth: 1,
+                    borderDash: [5, 5]
+                };
+            }
+        });
+        
+        this.chart.update('none');
     }
     
     updateConnectionStatus(connected) {
