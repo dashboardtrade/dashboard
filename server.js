@@ -119,7 +119,7 @@ function broadcastToClients(message) {
 app.get('/api/trades', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades')
+      .from('paper_trades_rows')
       .select('*')
       .order('timestamp', { ascending: false })
       .limit(100);
@@ -136,7 +136,7 @@ app.get('/api/trades', async (req, res) => {
 app.get('/api/current-position', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades')
+      .from('paper_trades_rows')
       .select('*')
       .eq('status', 'open')
       .order('timestamp', { ascending: false })
@@ -154,7 +154,7 @@ app.get('/api/current-position', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades')
+      .from('paper_trades_rows')
       .select('*')
       .eq('status', 'closed');
     
@@ -288,3 +288,5 @@ app.listen(PORT, () => {
     }
   }, 15000); // Every 15 seconds to stay within limits
 });
+console.log('🔑 Supabase URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
+console.log('🔑 Supabase Key:', process.env.SUPABASE_KEY ? 'SET' : 'MISSING');
