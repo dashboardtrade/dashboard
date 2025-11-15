@@ -119,7 +119,7 @@ function broadcastToClients(message) {
 app.get('/api/trades', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades_rows')
+      .from('paper_trades')
       .select('*')
       .order('timestamp', { ascending: false })
       .limit(100);
@@ -136,7 +136,7 @@ app.get('/api/trades', async (req, res) => {
 app.get('/api/current-position', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades_rows')
+      .from('paper_trades')
       .select('*')
       .eq('status', 'open')
       .order('timestamp', { ascending: false })
@@ -154,7 +154,7 @@ app.get('/api/current-position', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades_rows')
+      .from('paper_trades')
       .select('*')
       .eq('status', 'closed');
     
@@ -182,7 +182,7 @@ app.get('/api/stats', async (req, res) => {
 app.get('/api/chart-trades', async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('paper_trades_rows')
+      .from('paper_trades')
       .select('trade_id, timestamp, direction, entry_price, exit_price, exit_time, status, pnl, trade_result')
       .eq('status', 'closed')
       .order('timestamp', { ascending: true })
