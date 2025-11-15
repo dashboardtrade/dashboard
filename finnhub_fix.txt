@@ -1,0 +1,5 @@
+
+// Quick fix for Finnhub rate limiting
+// Replace the reconnection logic to be less aggressive
+setTimeout(connectFinnhub, 30000); // Wait 30 seconds instead of 5
+

@@ -258,6 +258,33 @@ app.listen(PORT, () => {
   console.log(`🚀 Trading Dashboard Server running on port ${PORT}`);
   console.log(`📊 WebSocket server running on port 8080`);
   
-  // Connect to Finnhub
-  connectToFinnhub();
+  // Use REST API instead of WebSocket to avoid rate limits
+  console.log('📈 Using Finnhub REST API for price updates');
+  
+  setInterval(async () => {
+    if (FINNHUB_API_KEY) {
+      try {
+        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=BTCUSDT&token=${FINNHUB_API_KEY}`);
+        if (response.data && response.data.c) {
+          currentPrice = response.data.c;
+          priceHistory.push({
+            x: Date.now(),
+            y: currentPrice
+          });
+          
+          if (priceHistory.length > 1000) {
+            priceHistory.shift();
+          }
+          
+          broadcastToClients({
+            type: 'price_update',
+            price: currentPrice,
+            timestamp: Date.now()
+          });
+        }
+      } catch (error) {
+        // Silent error handling
+      }
+    }
+  }, 15000); // Every 15 seconds to stay within limits
 });
