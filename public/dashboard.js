@@ -110,7 +110,7 @@ class TradingDashboard {
     setupChart() {
         const chartContainer = document.getElementById('priceChart');
         
-        // Create TradingView-style chart
+        // Create chart with correct API
         this.chart = LightweightCharts.createChart(chartContainer, {
             width: chartContainer.clientWidth,
             height: chartContainer.clientHeight,
@@ -135,7 +135,7 @@ class TradingDashboard {
             },
         });
 
-        // Add candlestick series
+        // Add candlestick series with correct syntax
         this.candlestickSeries = this.chart.addCandlestickSeries({
             upColor: '#02c076',
             downColor: '#f84960',
@@ -288,9 +288,9 @@ class TradingDashboard {
             console.log('Candles data received:', data);
             
             if (data.candles && data.candles.length > 0) {
-                // Format data for Lightweight Charts
+                // Format data for Lightweight Charts - use YYYY-MM-DD format
                 const candleData = data.candles.map(candle => ({
-                    time: Math.floor(new Date(candle.x).getTime() / 1000), // Unix timestamp
+                    time: new Date(candle.x).toISOString().split('T')[0], // YYYY-MM-DD format
                     open: candle.o,
                     high: candle.h,
                     low: candle.l,
@@ -298,12 +298,13 @@ class TradingDashboard {
                 }));
 
                 const volumeData = data.candles.map(candle => ({
-                    time: Math.floor(new Date(candle.x).getTime() / 1000),
+                    time: new Date(candle.x).toISOString().split('T')[0],
                     value: candle.v,
                     color: candle.c >= candle.o ? '#02c076' : '#f84960'
                 }));
 
                 console.log('Setting candle data:', candleData.length, 'candles');
+                console.log('Sample candle:', candleData[0]);
                 
                 // Set data to chart
                 this.candlestickSeries.setData(candleData);
@@ -329,12 +330,15 @@ class TradingDashboard {
 
     loadDemoData() {
         // Demo candlestick data if API fails
-        const now = Math.floor(Date.now() / 1000);
+        const today = new Date();
         const demoData = [];
         let price = 97000;
         
         for (let i = 100; i >= 0; i--) {
-            const time = now - (i * 60); // 1 minute intervals
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const timeStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            
             const open = price;
             const change = (Math.random() - 0.5) * 200;
             const close = open + change;
@@ -342,7 +346,7 @@ class TradingDashboard {
             const low = Math.min(open, close) - Math.random() * 100;
             
             demoData.push({
-                time: time,
+                time: timeStr,
                 open: open,
                 high: high,
                 low: low,
@@ -351,6 +355,9 @@ class TradingDashboard {
             
             price = close;
         }
+        
+        console.log('Loading demo data:', demoData.length, 'candles');
+        console.log('Sample demo candle:', demoData[0]);
         
         this.candlestickSeries.setData(demoData);
         this.currentPrice = price;
