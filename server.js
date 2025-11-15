@@ -178,6 +178,37 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// New endpoint for chart trade markers
+app.get('/api/chart-trades', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('paper_trades_rows')
+      .select('trade_id, timestamp, direction, entry_price, exit_price, exit_time, status, pnl, trade_result')
+      .eq('status', 'closed')
+      .order('timestamp', { ascending: true })
+      .limit(200);
+    
+    if (error) throw error;
+    
+    // Format trades for chart markers
+    const chartTrades = data.map(trade => ({
+      id: trade.trade_id,
+      entryTime: new Date(trade.timestamp).getTime(),
+      exitTime: trade.exit_time ? new Date(trade.exit_time).getTime() : null,
+      direction: trade.direction,
+      entryPrice: parseFloat(trade.entry_price),
+      exitPrice: trade.exit_price ? parseFloat(trade.exit_price) : null,
+      pnl: parseFloat(trade.pnl || 0),
+      result: trade.trade_result
+    }));
+    
+    res.json(chartTrades);
+  } catch (error) {
+    console.error('Error fetching chart trades:', error);
+    res.status(500).json({ error: 'Failed to fetch chart trades' });
+  }
+});
+
 app.get('/api/candles', async (req, res) => {
   try {
     // Generate 1-minute candles from price history

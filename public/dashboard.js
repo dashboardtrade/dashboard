@@ -23,6 +23,7 @@ class TradingDashboard {
             this.loadTrades();
             this.loadStats();
             this.loadCurrentPosition();
+            this.loadChartTrades(); // Refresh trade markers
         }, 30000);
     }
     
@@ -125,6 +126,9 @@ class TradingDashboard {
                     legend: {
                         display: false
                     },
+                    annotation: {
+                        annotations: {}
+                    },
                     tooltip: {
                         backgroundColor: '#2b3139',
                         titleColor: '#d1d4dc',
@@ -205,8 +209,93 @@ class TradingDashboard {
         await Promise.all([
             this.loadTrades(),
             this.loadStats(),
-            this.loadCurrentPosition()
+            this.loadCurrentPosition(),
+            this.loadChartTrades()
         ]);
+    }
+    
+    async loadChartTrades() {
+        try {
+            const response = await fetch('/api/chart-trades');
+            const trades = await response.json();
+            this.chartTrades = trades;
+            this.updateTradeMarkers();
+        } catch (error) {
+            console.error('Error loading chart trades:', error);
+        }
+    }
+    
+    updateTradeMarkers() {
+        if (!this.chart || !this.showTrades) return;
+        
+        // Remove existing trade annotations
+        if (!this.chart.options.plugins.annotation) {
+            this.chart.options.plugins.annotation = { annotations: {} };
+        }
+        this.chart.options.plugins.annotation.annotations = {};
+        
+        this.chartTrades.forEach(trade => {
+            // Entry marker
+            const entryColor = trade.direction === 'long' ? '#00d4aa' : '#f6465d';
+            const entrySymbol = trade.direction === 'long' ? '▲' : '▼';
+            
+            this.chart.options.plugins.annotation.annotations[`entry_${trade.id}`] = {
+                type: 'point',
+                xValue: trade.entryTime,
+                yValue: trade.entryPrice,
+                backgroundColor: entryColor,
+                borderColor: entryColor,
+                borderWidth: 2,
+                radius: 6,
+                label: {
+                    content: `${entrySymbol} ${trade.direction.toUpperCase()}`,
+                    enabled: true,
+                    position: trade.direction === 'long' ? 'bottom' : 'top',
+                    backgroundColor: entryColor,
+                    color: 'white',
+                    font: { size: 10 }
+                }
+            };
+            
+            // Exit marker (if trade is closed)
+            if (trade.exitTime && trade.exitPrice) {
+                const exitColor = trade.result === 'PROFIT' ? '#00d4aa' : '#f6465d';
+                const exitSymbol = trade.result === 'PROFIT' ? '✓' : '✗';
+                
+                this.chart.options.plugins.annotation.annotations[`exit_${trade.id}`] = {
+                    type: 'point',
+                    xValue: trade.exitTime,
+                    yValue: trade.exitPrice,
+                    backgroundColor: exitColor,
+                    borderColor: exitColor,
+                    borderWidth: 2,
+                    radius: 5,
+                    label: {
+                        content: `${exitSymbol} $${trade.pnl.toFixed(2)}`,
+                        enabled: true,
+                        position: trade.result === 'PROFIT' ? 'top' : 'bottom',
+                        backgroundColor: exitColor,
+                        color: 'white',
+                        font: { size: 9 }
+                    }
+                };
+                
+                // Draw line connecting entry and exit
+                this.chart.options.plugins.annotation.annotations[`line_${trade.id}`] = {
+                    type: 'line',
+                    xMin: trade.entryTime,
+                    xMax: trade.exitTime,
+                    yMin: trade.entryPrice,
+                    yMax: trade.exitPrice,
+                    borderColor: exitColor,
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    opacity: 0.5
+                };
+            }
+        });
+        
+        this.chart.update('none');
     }
     
     async loadTrades() {
