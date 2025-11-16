@@ -27,10 +27,17 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
 }
 
 // Supabase client for candles data (separate database)
-const candlesSupabase = createClient(
-  process.env.CANDLES_SUPABASE_URL,
-  process.env.CANDLES_SUPABASE_KEY
-);
+let candlesSupabase = null;
+if (process.env.CANDLES_SUPABASE_URL && process.env.CANDLES_SUPABASE_KEY) {
+  try {
+    candlesSupabase = createClient(process.env.CANDLES_SUPABASE_URL, process.env.CANDLES_SUPABASE_KEY);
+    console.log('✅ Candles Supabase connected');
+  } catch (error) {
+    console.log('❌ Candles Supabase connection failed:', error.message);
+  }
+} else {
+  console.log('⚠️ Candles Supabase credentials not configured');
+}
 
 // Finnhub API configuration
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
@@ -174,27 +181,6 @@ app.get('/api/trades', async (req, res) => {
   } catch (error) {
     console.error('Error fetching trades:', error);
     res.status(500).json({ error: 'Failed to fetch trades' });
-  }
-});
-
-app.get('/api/candles', async (req, res) => {
-  try {
-    if (!supabase) {
-      return res.status(500).json({ error: 'Supabase not configured' });
-    }
-    
-    const { data, error } = await supabase
-      .from('candles')  // Candles table - 1-minute candles
-      .select('*')
-      .order('timestamp', { ascending: false })
-      .limit(1440); // Last 24 hours of 1-minute candles
-
-    if (error) throw error;
-
-    res.json({ candles: data });
-  } catch (error) {
-    console.error('Error fetching candles:', error);
-    res.status(500).json({ error: 'Failed to fetch candles' });
   }
 });
 

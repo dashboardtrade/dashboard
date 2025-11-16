@@ -172,11 +172,17 @@ body {
     flex: 1;
     padding: 20px;
     position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
 }
 
 #priceChart {
     width: 100% !important;
     height: 100% !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
 }
 
 /* Side Panel */
