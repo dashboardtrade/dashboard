@@ -110,61 +110,46 @@ class TradingDashboard {
     setupChart() {
         const chartContainer = document.getElementById('priceChart');
         
-        // Create chart with correct API
-        this.chart = LightweightCharts.createChart(chartContainer, {
-            width: chartContainer.clientWidth,
-            height: chartContainer.clientHeight,
-            layout: {
-                background: { color: '#161a1e' },
-                textColor: '#d1d4dc',
-            },
-            grid: {
-                vertLines: { color: '#2b3139' },
-                horzLines: { color: '#2b3139' },
-            },
-            crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal,
-            },
-            rightPriceScale: {
-                borderColor: '#2b3139',
-            },
-            timeScale: {
-                borderColor: '#2b3139',
-                timeVisible: true,
-                secondsVisible: false,
-            },
-        });
-
-        // Add candlestick series with correct syntax
-        this.candlestickSeries = this.chart.addCandlestickSeries({
-            upColor: '#02c076',
-            downColor: '#f84960',
-            borderDownColor: '#f84960',
-            borderUpColor: '#02c076',
-            wickDownColor: '#f84960',
-            wickUpColor: '#02c076',
-        });
-
-        // Add volume series
-        this.volumeSeries = this.chart.addHistogramSeries({
-            color: '#26a69a',
-            priceFormat: {
-                type: 'volume',
-            },
-            priceScaleId: '',
-            scaleMargins: {
-                top: 0.8,
-                bottom: 0,
-            },
-        });
-
-        // Handle resize
-        window.addEventListener('resize', () => {
-            this.chart.applyOptions({
-                width: chartContainer.clientWidth,
-                height: chartContainer.clientHeight,
+        try {
+            // Create chart with minimal config
+            this.chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth || 800,
+                height: chartContainer.clientHeight || 400,
+                layout: {
+                    backgroundColor: '#161a1e',
+                    textColor: '#d1d4dc',
+                },
+                grid: {
+                    vertLines: { color: '#2b3139' },
+                    horzLines: { color: '#2b3139' },
+                },
+                rightPriceScale: {
+                    borderColor: '#2b3139',
+                },
+                timeScale: {
+                    borderColor: '#2b3139',
+                },
             });
-        });
+
+            // Add candlestick series
+            this.candlestickSeries = this.chart.addCandlestickSeries({
+                upColor: '#02c076',
+                downColor: '#f84960',
+                borderDownColor: '#f84960',
+                borderUpColor: '#02c076',
+                wickDownColor: '#f84960',
+                wickUpColor: '#02c076',
+            });
+
+            console.log('Chart created successfully');
+            
+            // Load demo data immediately
+            this.loadDemoData();
+            
+        } catch (error) {
+            console.error('Error creating chart:', error);
+            chartContainer.innerHTML = '<div style="color: red; padding: 20px;">Chart failed to load</div>';
+        }
     }
             options: {
                 responsive: true,
@@ -329,40 +314,25 @@ class TradingDashboard {
     }
 
     loadDemoData() {
-        // Demo candlestick data if API fails
-        const today = new Date();
-        const demoData = [];
-        let price = 97000;
-        
-        for (let i = 100; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const timeStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-            
-            const open = price;
-            const change = (Math.random() - 0.5) * 200;
-            const close = open + change;
-            const high = Math.max(open, close) + Math.random() * 100;
-            const low = Math.min(open, close) - Math.random() * 100;
-            
-            demoData.push({
-                time: timeStr,
-                open: open,
-                high: high,
-                low: low,
-                close: close
-            });
-            
-            price = close;
-        }
+        // Demo candlestick data with proper date format
+        const demoData = [
+            { time: '2025-11-10', open: 96500, high: 97200, low: 96300, close: 97000 },
+            { time: '2025-11-11', open: 97000, high: 97800, low: 96800, close: 97500 },
+            { time: '2025-11-12', open: 97500, high: 98200, low: 97200, close: 97800 },
+            { time: '2025-11-13', open: 97800, high: 98500, low: 97600, close: 98200 },
+            { time: '2025-11-14', open: 98200, high: 98800, low: 97900, close: 98400 },
+            { time: '2025-11-15', open: 98400, high: 99000, low: 98100, close: 98700 },
+        ];
         
         console.log('Loading demo data:', demoData.length, 'candles');
-        console.log('Sample demo candle:', demoData[0]);
         
         this.candlestickSeries.setData(demoData);
-        this.currentPrice = price;
+        this.currentPrice = 98700;
         document.getElementById('currentPrice').textContent = `$${this.currentPrice.toLocaleString()}`;
-        console.log('Demo data loaded');
+        document.getElementById('balance').textContent = '$10,500';
+        document.getElementById('return').textContent = '+5.0%';
+        
+        console.log('Demo data loaded successfully');
     }
     
     async loadChartTrades() {

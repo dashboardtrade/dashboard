@@ -14,10 +14,17 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Supabase client for trades data
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  try {
+    supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+    console.log('✅ Supabase connected');
+  } catch (error) {
+    console.log('❌ Supabase connection failed:', error.message);
+  }
+} else {
+  console.log('⚠️ Supabase credentials not configured');
+}
 
 // Supabase client for candles data (separate database)
 const candlesSupabase = createClient(
@@ -27,7 +34,7 @@ const candlesSupabase = createClient(
 
 // Finnhub API configuration
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
-const FINNHUB_WS_URL = `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}`;
+const FINNHUB_WS_URL = FINNHUB_API_KEY ? `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}` : null;
 
 // Store for real-time data
 let currentPrice = 97000; // Default BTC price
