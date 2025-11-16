@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Gemini AI Trading Bot - TradingView Advanced Chart</title>
+    <title>Gemini AI Trading Bot - Complete Professional Chart</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Bootstrap CSS -->
@@ -57,10 +57,34 @@
             color: #848e9c;
             font-size: 0.9rem;
         }
-        #tradingview_advanced {
+        #tradingview_complete {
             height: 600px;
             background: #1e2329;
             border-radius: 8px;
+        }
+        .custom-toolbar {
+            background: #2b3139;
+            padding: 8px 15px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #3c4043;
+        }
+        .indicator-btn {
+            background: #3c4043;
+            border: 1px solid #485c7b;
+            color: #d1d4dc;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .indicator-btn:hover {
+            background: #485c7b;
+            color: white;
+        }
+        .indicator-btn.active {
+            background: #f0b90b;
+            color: #000;
         }
     </style>
 </head>
@@ -70,12 +94,12 @@
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
                 <i class="fas fa-robot me-2"></i>
-                Gemini AI Trading Bot - TradingView Advanced
+                Gemini AI Trading Bot - Complete Professional Chart
             </a>
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text">
                     <i class="fas fa-circle text-success me-1"></i>
-                    Professional Trading Chart
+                    Full Professional Trading Platform
                 </span>
             </div>
         </div>
@@ -112,21 +136,49 @@
 
         <!-- Chart and Trades Row -->
         <div class="row">
-            <!-- TradingView Advanced Chart -->
+            <!-- Complete Professional Chart -->
             <div class="col-lg-8">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-chart-line me-2"></i>
-                            TradingView Advanced Chart with Trade Levels
-                        </h5>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-light btn-sm" onclick="dashboard.addTradeLines()">Add Trade Lines</button>
-                            <button type="button" class="btn btn-outline-light btn-sm" onclick="dashboard.clearLines()">Clear Lines</button>
+                    <!-- Custom Indicator Toolbar -->
+                    <div class="custom-toolbar">
+                        <div class="d-flex align-items-center flex-wrap">
+                            <span class="me-3"><i class="fas fa-chart-line me-2"></i>Professional Chart</span>
+                            
+                            <!-- Indicators -->
+                            <div class="me-4">
+                                <button class="indicator-btn active" onclick="dashboard.toggleIndicator('volume')">
+                                    <i class="fas fa-chart-bar me-1"></i>Volume
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.toggleIndicator('macd')">
+                                    <i class="fas fa-wave-square me-1"></i>MACD
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.toggleIndicator('rsi')">
+                                    <i class="fas fa-chart-area me-1"></i>RSI
+                                </button>
+                            </div>
+                            
+                            <!-- Trade Level Plotting -->
+                            <div>
+                                <button class="indicator-btn" onclick="dashboard.plotTradeLevels('entry')">
+                                    <i class="fas fa-crosshairs me-1"></i>Plot Entries
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.plotTradeLevels('sl')">
+                                    <i class="fas fa-times me-1"></i>Plot SL
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.plotTradeLevels('tp')">
+                                    <i class="fas fa-bullseye me-1"></i>Plot TP
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.plotTradeLevels('all')">
+                                    <i class="fas fa-layer-group me-1"></i>Plot All
+                                </button>
+                                <button class="indicator-btn" onclick="dashboard.clearTradePlots()">
+                                    <i class="fas fa-eraser me-1"></i>Clear
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="card-body p-0">
-                        <div id="tradingview_advanced"></div>
+                        <div id="tradingview_complete"></div>
                     </div>
                 </div>
             </div>
@@ -168,15 +220,16 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        class AdvancedTradingDashboard {
+        class CompleteTradingDashboard {
             constructor() {
                 this.widget = null;
                 this.trades = [];
+                this.activeIndicators = new Set(['volume']);
                 this.init();
             }
 
             init() {
-                this.setupAdvancedChart();
+                this.setupCompleteChart();
                 this.loadData();
                 
                 // Update every 30 seconds
@@ -185,8 +238,8 @@
                 }, 30000);
             }
 
-            setupAdvancedChart() {
-                // TradingView Advanced Chart - BALANCED CONFIG for ALL TOOLS
+            setupCompleteChart() {
+                // TradingView with BOTH drawing tools AND custom indicator controls
                 this.widget = new TradingView.widget({
                     width: '100%',
                     height: 600,
@@ -202,21 +255,69 @@
                     hide_side_toolbar: false,
                     allow_symbol_change: true,
                     save_image: true,
-                    container_id: "tradingview_advanced",
+                    container_id: "tradingview_complete",
+                    studies: ["Volume@tv-basicstudies"],
                     overrides: {
                         "paneProperties.background": "#1e2329",
                         "mainSeriesProperties.candleStyle.upColor": "#4bffb5",
                         "mainSeriesProperties.candleStyle.downColor": "#ff4976"
-                    },
-                    disabled_features: [
-                        "use_localstorage_for_settings"
-                    ],
-                    enabled_features: [
-                        "study_templates"
-                    ]
+                    }
                 });
 
-                console.log('TradingView Advanced Chart with BALANCED tools initialized');
+                console.log('Complete Professional Chart initialized');
+            }
+
+            toggleIndicator(indicator) {
+                const btn = event.target.closest('.indicator-btn');
+                
+                if (this.activeIndicators.has(indicator)) {
+                    // Remove indicator
+                    this.activeIndicators.delete(indicator);
+                    btn.classList.remove('active');
+                } else {
+                    // Add indicator
+                    this.activeIndicators.add(indicator);
+                    btn.classList.add('active');
+                }
+                
+                this.updateIndicators();
+            }
+
+            updateIndicators() {
+                // Recreate widget with new indicators
+                const studies = [];
+                
+                if (this.activeIndicators.has('volume')) studies.push("Volume@tv-basicstudies");
+                if (this.activeIndicators.has('macd')) studies.push("MACD@tv-basicstudies");
+                if (this.activeIndicators.has('rsi')) studies.push("RSI@tv-basicstudies");
+                if (this.activeIndicators.has('bb')) studies.push("BB@tv-basicstudies");
+
+                // Update widget with new studies
+                this.widget = new TradingView.widget({
+                    width: '100%',
+                    height: 600,
+                    symbol: "BINANCE:BTCUSDT",
+                    interval: "1",
+                    timezone: "Etc/UTC",
+                    theme: "dark",
+                    style: "1",
+                    locale: "en",
+                    enable_publishing: false,
+                    hide_top_toolbar: false,
+                    hide_legend: false,
+                    hide_side_toolbar: false,
+                    allow_symbol_change: true,
+                    save_image: true,
+                    container_id: "tradingview_complete",
+                    studies: studies,
+                    overrides: {
+                        "paneProperties.background": "#1e2329",
+                        "mainSeriesProperties.candleStyle.upColor": "#4bffb5",
+                        "mainSeriesProperties.candleStyle.downColor": "#ff4976"
+                    }
+                });
+
+                console.log('Updated indicators:', Array.from(this.activeIndicators));
             }
 
             async loadData() {
@@ -294,89 +395,12 @@
                     console.error('Error loading stats:', error);
                 }
             }
-
-            addTradeLines() {
-                // Don't add any trade lines - keep chart clean
-                console.log('Trade lines disabled - clean chart');
-            }
-
-            createTradeLineOverlays() {
-                const chartContainer = document.getElementById('tradingview_advanced');
-                
-                // Remove existing overlays
-                const existingOverlays = chartContainer.querySelectorAll('.trade-line-overlay');
-                existingOverlays.forEach(overlay => overlay.remove());
-
-                // Add horizontal lines for each trade
-                this.trades.slice(0, 5).forEach((trade, index) => {
-                    const entryPrice = parseFloat(trade.entry_price);
-                    const stopLoss = parseFloat(trade.stop_loss);
-                    const takeProfit = parseFloat(trade.take_profit);
-
-                    // Calculate approximate positions (you'd need to map to actual chart coordinates)
-                    const baseTop = 100 + (index * 80); // Spread vertically
-
-                    // Entry line
-                    this.createHorizontalLine(chartContainer, baseTop, '#f0b90b', 'Entry', entryPrice);
-
-                    // Stop Loss line
-                    if (stopLoss && stopLoss > 0) {
-                        this.createHorizontalLine(chartContainer, baseTop + 20, '#ff4976', 'SL', stopLoss);
-                    }
-
-                    // Take Profit line
-                    if (takeProfit && takeProfit > 0) {
-                        this.createHorizontalLine(chartContainer, baseTop - 20, '#4bffb5', 'TP', takeProfit);
-                    }
-                });
-
-                console.log('Added trade level lines to advanced chart');
-            }
-
-            createHorizontalLine(container, top, color, label, price) {
-                const line = document.createElement('div');
-                line.className = 'trade-line-overlay';
-                line.style.cssText = `
-                    position: absolute;
-                    top: ${top}px;
-                    left: 60px;
-                    right: 60px;
-                    height: 2px;
-                    background: ${color};
-                    z-index: 1000;
-                    pointer-events: none;
-                `;
-
-                const labelDiv = document.createElement('div');
-                labelDiv.style.cssText = `
-                    position: absolute;
-                    right: -50px;
-                    top: -8px;
-                    background: ${color};
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 3px;
-                    font-size: 10px;
-                    font-weight: bold;
-                `;
-                labelDiv.textContent = `${label}: $${price}`;
-
-                line.appendChild(labelDiv);
-                container.appendChild(line);
-            }
-
-            clearLines() {
-                const chartContainer = document.getElementById('tradingview_advanced');
-                const overlays = chartContainer.querySelectorAll('.trade-line-overlay');
-                overlays.forEach(overlay => overlay.remove());
-                console.log('Cleared all trade lines');
-            }
         }
 
         // Initialize dashboard when page loads
         let dashboard;
         document.addEventListener('DOMContentLoaded', () => {
-            dashboard = new AdvancedTradingDashboard();
+            dashboard = new CompleteTradingDashboard();
         });
     </script>
 </body>

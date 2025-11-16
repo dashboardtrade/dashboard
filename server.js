@@ -1,8 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
-const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
@@ -11,172 +9,29 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static('.'));
 
-// Supabase client for trades data
-let supabase = null;
-if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-  try {
-    supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-    console.log('✅ Supabase connected');
-  } catch (error) {
-    console.log('❌ Supabase connection failed:', error.message);
-  }
-} else {
-  console.log('⚠️ Supabase credentials not configured');
-}
+// Supabase clients
+const tradesSupabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-// Supabase client for candles data (separate database)
-let candlesSupabase = null;
-if (process.env.CANDLES_SUPABASE_URL && process.env.CANDLES_SUPABASE_KEY) {
-  try {
-    candlesSupabase = createClient(process.env.CANDLES_SUPABASE_URL, process.env.CANDLES_SUPABASE_KEY);
-    console.log('✅ Candles Supabase connected');
-  } catch (error) {
-    console.log('❌ Candles Supabase connection failed:', error.message);
-  }
-} else {
-  console.log('⚠️ Candles Supabase credentials not configured');
-}
-
-// Finnhub API configuration
-const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
-const FINNHUB_WS_URL = FINNHUB_API_KEY ? `wss://ws.finnhub.io?token=${FINNHUB_API_KEY}` : null;
-
-// Store for real-time data
-let currentPrice = 97000; // Default BTC price
-let priceHistory = [];
-let connectedClients = new Set();
-
-// WebSocket server for client connections
-const wss = new WebSocket.Server({ port: process.env.PORT ? parseInt(process.env.PORT) + 1 : 8080 });
-
-// Finnhub WebSocket connection
-let finnhubWs;
-
-// Fallback price simulation if Finnhub fails
-function simulatePrice() {
-  const variation = (Math.random() - 0.5) * 200; // ±$100 variation
-  currentPrice = Math.max(90000, Math.min(110000, currentPrice + variation));
-  
-  const priceData = {
-    price: currentPrice,
-    volume: Math.random() * 100,
-    timestamp: Date.now()
-  };
-  
-  priceHistory.push(priceData);
-  if (priceHistory.length > 1000) {
-    priceHistory.shift();
-  }
-  
-  broadcastToClients({
-    type: 'price_update',
-    data: priceData
-  });
-}
-
-function connectToFinnhub() {
-  if (!FINNHUB_API_KEY) {
-    console.log('⚠️ No Finnhub API key, using simulated prices');
-    setInterval(simulatePrice, 2000); // Update every 2 seconds
-    return;
-  }
-
-  finnhubWs = new WebSocket(FINNHUB_WS_URL);
-  
-  finnhubWs.on('open', () => {
-    console.log('🔗 Connected to Finnhub WebSocket');
-    finnhubWs.send(JSON.stringify({
-      'type': 'subscribe',
-      'symbol': 'BINANCE:BTCUSDT'
-    }));
-  });
-  
-  finnhubWs.on('message', (data) => {
-    try {
-      const message = JSON.parse(data);
-      if (message.type === 'trade' && message.data) {
-        message.data.forEach(trade => {
-          currentPrice = trade.p;
-          const priceData = {
-            price: trade.p,
-            volume: trade.v,
-            timestamp: trade.t
-          };
-          
-          // Store price history for candlestick formation
-          priceHistory.push(priceData);
-          
-          // Keep only last 1000 price points
-          if (priceHistory.length > 1000) {
-            priceHistory.shift();
-          }
-          
-          // Broadcast to all connected clients
-          broadcastToClients({
-            type: 'price_update',
-            data: priceData
-          });
-        });
-      }
-    } catch (error) {
-      console.error('Error parsing Finnhub message:', error);
-    }
-  });
-  
-  finnhubWs.on('close', () => {
-    console.log('❌ Finnhub WebSocket closed, reconnecting...');
-    setTimeout(connectToFinnhub, 5000);
-  });
-  
-  finnhubWs.on('error', (error) => {
-    console.error('Finnhub WebSocket error:', error);
-  });
-}
-
-// Client WebSocket connections
-wss.on('connection', (ws) => {
-  console.log('📱 Client connected');
-  connectedClients.add(ws);
-  
-  // Send current price to new client
-  if (currentPrice > 0) {
-    ws.send(JSON.stringify({
-      type: 'price_update',
-      data: { price: currentPrice, timestamp: Date.now() }
-    }));
-  }
-  
-  ws.on('close', () => {
-    console.log('📱 Client disconnected');
-    connectedClients.delete(ws);
-  });
-});
-
-function broadcastToClients(message) {
-  connectedClients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
-    }
-  });
-}
+const candlesSupabase = createClient(
+  process.env.CANDLES_SUPABASE_URL,
+  process.env.CANDLES_SUPABASE_KEY
+);
 
 // API Routes
 app.get('/api/trades', async (req, res) => {
   try {
-    if (!supabase) {
-      return res.status(500).json({ error: 'Supabase not configured' });
-    }
-    
-    const { data, error } = await supabase
-      .from('paper_trades')  // Trades table
+    const { data, error } = await tradesSupabase
+      .from('paper_trades')
       .select('*')
       .order('timestamp', { ascending: false })
       .limit(100);
     
     if (error) throw error;
-    
     res.json({ trades: data });
   } catch (error) {
     console.error('Error fetching trades:', error);
@@ -184,105 +39,16 @@ app.get('/api/trades', async (req, res) => {
   }
 });
 
-app.get('/api/current-position', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('paper_trades')
-      .select('*')
-      .eq('status', 'open')
-      .order('timestamp', { ascending: false })
-      .limit(1);
-    
-    if (error) throw error;
-    
-    res.json({ position: data[0] || null });
-  } catch (error) {
-    console.error('Error fetching current position:', error);
-    res.status(500).json({ error: 'Failed to fetch current position' });
-  }
-});
-
-app.get('/api/stats', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('paper_trades')
-      .select('*')
-      .eq('status', 'closed');
-    
-    if (error) throw error;
-    
-    const totalTrades = data.length;
-    const winningTrades = data.filter(trade => trade.pnl > 0).length;
-    const totalPnL = data.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
-    const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100) : 0;
-    
-    res.json({
-      totalTrades,
-      winningTrades,
-      winRate: winRate.toFixed(1),
-      totalPnL: totalPnL.toFixed(2),
-      currentPrice
-    });
-  } catch (error) {
-    console.error('Error fetching stats:', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
-  }
-});
-
-// New endpoint for chart trade markers
-app.get('/api/chart-trades', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('paper_trades')
-      .select('trade_id, timestamp, direction, entry_price, exit_price, exit_time, status, pnl, trade_result')
-      .eq('status', 'closed')
-      .order('timestamp', { ascending: true })
-      .limit(200);
-    
-    if (error) throw error;
-    
-    // Format trades for chart markers
-    const chartTrades = data.map(trade => ({
-      id: trade.trade_id,
-      entryTime: new Date(trade.timestamp).getTime(),
-      exitTime: trade.exit_time ? new Date(trade.exit_time).getTime() : null,
-      direction: trade.direction,
-      entryPrice: parseFloat(trade.entry_price),
-      exitPrice: trade.exit_price ? parseFloat(trade.exit_price) : null,
-      pnl: parseFloat(trade.pnl || 0),
-      result: trade.trade_result
-    }));
-    
-    res.json(chartTrades);
-  } catch (error) {
-    console.error('Error fetching chart trades:', error);
-    res.status(500).json({ error: 'Failed to fetch chart trades' });
-  }
-});
-
 app.get('/api/candles', async (req, res) => {
   try {
-    console.log('Fetching candles from database...');
-    
-    if (!candlesSupabase) {
-      console.log('No candles database configured, using fallback');
-      return res.json({ candles: [] });
-    }
-
     const { data, error } = await candlesSupabase
       .from('candles')
       .select('timestamp, open, high, low, close, volume')
       .order('timestamp', { ascending: false })
-      .limit(1000);
+      .limit(500);
 
-    if (error) {
-      console.error('Supabase error:', error);
-      throw error;
-    }
+    if (error) throw error;
 
-    console.log(`Fetched ${data.length} candles from database`);
-
-    // Format candles for Chart.js (reverse to ascending order)
     const formattedCandles = data.reverse().map(candle => ({
       x: new Date(candle.timestamp),
       o: candle.open,
@@ -292,108 +58,64 @@ app.get('/api/candles', async (req, res) => {
       v: candle.volume
     }));
 
-    console.log('Sending formatted candles to client');
     res.json({ candles: formattedCandles });
   } catch (error) {
     console.error('Error fetching candles:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch candles',
-      message: error.message 
-    });
+    res.status(500).json({ error: 'Failed to fetch candles' });
   }
 });
 
-app.get('/api/current-price', async (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    // Get latest candle for current price
-    const { data, error } = await candlesSupabase
-      .from('candles')
-      .select('close, timestamp')
-      .order('timestamp', { ascending: false })
-      .limit(1);
-
+    const { data, error } = await tradesSupabase
+      .from('paper_trades')
+      .select('*');
+    
     if (error) throw error;
 
-    const latestPrice = data[0]?.close || currentPrice;
-    currentPrice = latestPrice;
+    const totalTrades = data.length;
+    const winningTrades = data.filter(trade => (trade.pnl || 0) > 0).length;
+    const totalPnL = data.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+    const winRate = totalTrades > 0 ? (winningTrades / totalTrades * 100).toFixed(1) : 0;
 
-    res.json({ 
-      price: latestPrice,
-      timestamp: data[0]?.timestamp || new Date().toISOString()
+    res.json({
+      totalTrades,
+      winningTrades,
+      winRate,
+      totalPnL: totalPnL.toFixed(2)
     });
   } catch (error) {
-    console.error('Error fetching current price:', error);
-    res.status(500).json({ error: 'Failed to fetch current price' });
+    console.error('Error fetching stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
-function generateCandles(prices, interval = 60000) { // 1 minute intervals
-  const candles = [];
-  if (prices.length === 0) return candles;
-  
-  const now = Date.now();
-  const startTime = now - (24 * 60 * 60 * 1000); // Last 24 hours
-  
-  for (let time = startTime; time < now; time += interval) {
-    const periodPrices = prices.filter(p => 
-      p.timestamp >= time && p.timestamp < time + interval
-    );
+// New endpoint for trade markers
+app.get('/api/trade-markers', async (req, res) => {
+  try {
+    const { data, error } = await tradesSupabase
+      .from('paper_trades')
+      .select('*')
+      .order('timestamp', { ascending: true });
     
-    if (periodPrices.length > 0) {
-      const open = periodPrices[0].price;
-      const close = periodPrices[periodPrices.length - 1].price;
-      const high = Math.max(...periodPrices.map(p => p.price));
-      const low = Math.min(...periodPrices.map(p => p.price));
-      const volume = periodPrices.reduce((sum, p) => sum + p.volume, 0);
-      
-      candles.push({
-        timestamp: time,
-        open,
-        high,
-        low,
-        close,
-        volume
-      });
-    }
-  }
-  
-  return candles;
-}
+    if (error) throw error;
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Trading Dashboard Server running on port ${PORT}`);
-  console.log(`📊 WebSocket server running on port 8080`);
-  
-  // Use REST API instead of WebSocket to avoid rate limits
-  console.log('📈 Using Finnhub REST API for price updates');
-  
-  setInterval(async () => {
-    if (FINNHUB_API_KEY) {
-      try {
-        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=BTCUSDT&token=${FINNHUB_API_KEY}`);
-        if (response.data && response.data.c) {
-          currentPrice = response.data.c;
-          priceHistory.push({
-            x: Date.now(),
-            y: currentPrice
-          });
-          
-          if (priceHistory.length > 1000) {
-            priceHistory.shift();
-          }
-          
-          broadcastToClients({
-            type: 'price_update',
-            price: currentPrice,
-            timestamp: Date.now()
-          });
-        }
-      } catch (error) {
-        // Silent error handling
-      }
-    }
-  }, 15000); // Every 15 seconds to stay within limits
+    const markers = data.map(trade => ({
+      time: Math.floor(new Date(trade.timestamp).getTime() / 1000),
+      position: 'belowBar',
+      color: trade.direction === 'long' ? '#4bffb5' : '#ff4976',
+      shape: trade.direction === 'long' ? 'arrowUp' : 'arrowDown',
+      text: `#${trade.trade_id || trade.id} ${trade.direction.toUpperCase()}\nEntry: $${trade.entry_price}\nSL: $${trade.stop_loss || 'N/A'}\nTP: $${trade.take_profit || 'N/A'}\nP&L: ${(trade.pnl || 0) >= 0 ? '+' : ''}$${(trade.pnl || 0).toFixed(2)}`,
+      size: 1
+    }));
+
+    res.json({ markers });
+  } catch (error) {
+    console.error('Error fetching trade markers:', error);
+    res.status(500).json({ error: 'Failed to fetch trade markers' });
+  }
 });
-console.log('🔑 Supabase URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
-console.log('🔑 Supabase Key:', process.env.SUPABASE_KEY ? 'SET' : 'MISSING');
+
+app.listen(PORT, () => {
+  console.log(`🚀 Professional Trading Dashboard running on port ${PORT}`);
+});
