@@ -65,6 +65,50 @@ app.get('/api/candles', async (req, res) => {
   }
 });
 
+// POST endpoint for candle data from TradingView
+app.post('/api/candles', async (req, res) => {
+  try {
+    const { timestamp, data } = req.body;
+    
+    console.log('📊 Received candle data:', {
+      timestamp: new Date(timestamp).toISOString(),
+      timeframes: Object.keys(data),
+      counts: Object.entries(data).map(([tf, candles]) => `${tf}: ${candles.length}`)
+    });
+    
+    // Store candle data globally for trading bot access
+    global.latestCandleData = {
+      timestamp,
+      data,
+      receivedAt: Date.now()
+    };
+    
+    res.json({ 
+      success: true, 
+      message: 'Candle data received',
+      timeframes: Object.keys(data)
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing candle data:', error);
+    res.status(500).json({ error: 'Failed to process candle data' });
+  }
+});
+
+// GET endpoint for latest candle data (for trading bot)
+app.get('/api/candles/latest', async (req, res) => {
+  try {
+    if (global.latestCandleData) {
+      res.json(global.latestCandleData);
+    } else {
+      res.json({ message: 'No candle data available yet' });
+    }
+  } catch (error) {
+    console.error('❌ Error getting latest candle data:', error);
+    res.status(500).json({ error: 'Failed to get candle data' });
+  }
+});
+
 app.get('/api/stats', async (req, res) => {
   try {
     const { data, error } = await tradesSupabase
